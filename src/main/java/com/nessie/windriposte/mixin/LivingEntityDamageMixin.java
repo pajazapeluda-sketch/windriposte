@@ -4,6 +4,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.Vec3d;
@@ -21,6 +22,17 @@ public abstract class LivingEntityDamageMixin {
     @Unique private boolean windriposte$shieldCooldownBefore = false;
     @Unique private long windriposte$lastProcTick = 0L;
 
+    @Unique
+    private static ItemStack windriposte$getHeldShield(PlayerEntity player) {
+        ItemStack off = player.getOffHandStack();
+        if (off.isOf(Items.SHIELD)) return off;
+
+        ItemStack main = player.getMainHandStack();
+        if (main.isOf(Items.SHIELD)) return main;
+
+        return ItemStack.EMPTY;
+    }
+
     @Inject(
             method = "damage(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/damage/DamageSource;F)Z",
             at = @At("HEAD")
@@ -34,7 +46,10 @@ public abstract class LivingEntityDamageMixin {
         }
 
         windriposte$wasBlocking = player.isBlocking();
-        windriposte$shieldCooldownBefore = player.getItemCooldownManager().isCoolingDown(Items.SHIELD);
+
+        ItemStack shield = windriposte$getHeldShield(player);
+        windriposte$shieldCooldownBefore =
+                !shield.isEmpty() && player.getItemCooldownManager().isCoolingDown(shield);
     }
 
     @Inject(
@@ -45,33 +60,28 @@ public abstract class LivingEntityDamageMixin {
         LivingEntity self = (LivingEntity)(Object)this;
         if (!(self instanceof PlayerEntity player)) return;
 
-        // Damage must actually apply
-        if (!cir.getReturnValue()) return;
-
-        // Must have been blocking before the hit
-        if (!windriposte$wasBlocking) return;
+        if (!cir.getReturnValue()) return;        // damage must apply
+        if (!windriposte$wasBlocking) return;     // must have been blocking before hit
 
         // 1 second internal cooldown so it can't spam
         long now = world.getTime();
         if (now - windriposte$lastProcTick < 20) return;
 
-        // Shield disable = SHIELD cooldown turns on this tick
-        boolean shieldCooldownAfter = player.getItemCooldownManager().isCoolingDown(Items.SHIELD);
-        if (windriposte$shieldCooldownBefore) return;     // already cooling down before, don't retrigger
-        if (!shieldCooldownAfter) return;                // cooldown didn't start -> not a shield disable
+        ItemStack shield = windriposte$getHeldShield(player);
+        if (shield.isEmpty()) return;
+
+        boolean shieldCooldownAfter = player.getItemCooldownManager().isCoolingDown(shield);
+
+        // Shield disable = cooldown turns on this hit
+        if (windriposte$shieldCooldownBefore) return;
+        if (!shieldCooldownAfter) return;
 
         @Nullable Entity attackerEntity = source.getAttacker();
         if (!(attackerEntity instanceof LivingEntity attacker)) return;
 
-        // Make sure player actually has a shield equipped (main hand or offhand)
-        boolean hasShield =
-                player.getOffHandStack().isOf(Items.SHIELD) ||
-                player.getMainHandStack().isOf(Items.SHIELD);
-        if (!hasShield) return;
-
         windriposte$lastProcTick = now;
 
-        // Knockback attacker away from player
+        // Push attacker away from player
         Vec3d defenderPos = new Vec3d(player.getX(), player.getY(), player.getZ());
         Vec3d attackerPos = new Vec3d(attacker.getX(), attacker.getY(), attacker.getZ());
         Vec3d dir = attackerPos.subtract(defenderPos);
