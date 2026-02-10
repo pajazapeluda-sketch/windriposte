@@ -4,7 +4,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
@@ -18,6 +18,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class LivingEntityDamageMixin {
 
     @Unique private boolean windriposte$wasBlocking = false;
+    @Unique private boolean windriposte$shieldCooldownBefore = false;
+    @Unique private long windriposte$lastProcTick = 0L;
 
     @Inject(
             method = "damage(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/damage/DamageSource;F)Z",
@@ -25,12 +27,14 @@ public abstract class LivingEntityDamageMixin {
     )
     private void windriposte$head(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         LivingEntity self = (LivingEntity)(Object)this;
-        // Only players have a real "shield disable" behavior we care about.
-        if (!(self instanceof PlayerEntity)) {
+        if (!(self instanceof PlayerEntity player)) {
             windriposte$wasBlocking = false;
+            windriposte$shieldCooldownBefore = false;
             return;
         }
-        windriposte$wasBlocking = self.isBlocking();
+
+        windriposte$wasBlocking = player.isBlocking();
+        windriposte$shieldCooldownBefore = player.getItemCooldownManager().isCoolingDown(Items.SHIELD);
     }
 
     @Inject(
@@ -39,35 +43,45 @@ public abstract class LivingEntityDamageMixin {
     )
     private void windriposte$return(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         LivingEntity self = (LivingEntity)(Object)this;
-        if (!(self instanceof PlayerEntity)) return;
+        if (!(self instanceof PlayerEntity player)) return;
 
-        // If damage didn't apply, nothing happened.
+        // Damage must actually apply
         if (!cir.getReturnValue()) return;
 
-        // If we weren't blocking before, not a shield situation.
+        // Must have been blocking before the hit
         if (!windriposte$wasBlocking) return;
 
-        // Still blocking after damage -> shield did NOT get disabled.
-        if (self.isBlocking()) return;
+        // 1 second internal cooldown so it can't spam
+        long now = world.getTime();
+        if (now - windriposte$lastProcTick < 20) return;
+
+        // Shield disable = SHIELD cooldown turns on this tick
+        boolean shieldCooldownAfter = player.getItemCooldownManager().isCoolingDown(Items.SHIELD);
+        if (windriposte$shieldCooldownBefore) return;     // already cooling down before, don't retrigger
+        if (!shieldCooldownAfter) return;                // cooldown didn't start -> not a shield disable
 
         @Nullable Entity attackerEntity = source.getAttacker();
         if (!(attackerEntity instanceof LivingEntity attacker)) return;
 
-        // Must actually have had a shield up
-        ItemStack blockingItem = self.getBlockingItem();
-        if (blockingItem == null || blockingItem.isEmpty()) return;
+        // Make sure player actually has a shield equipped (main hand or offhand)
+        boolean hasShield =
+                player.getOffHandStack().isOf(Items.SHIELD) ||
+                player.getMainHandStack().isOf(Items.SHIELD);
+        if (!hasShield) return;
 
-        // TEST MODE: always push back (no enchantment yet)
-        Vec3d defenderPos = new Vec3d(self.getX(), self.getY(), self.getZ());
+        windriposte$lastProcTick = now;
+
+        // Knockback attacker away from player
+        Vec3d defenderPos = new Vec3d(player.getX(), player.getY(), player.getZ());
         Vec3d attackerPos = new Vec3d(attacker.getX(), attacker.getY(), attacker.getZ());
         Vec3d dir = attackerPos.subtract(defenderPos);
 
         dir = new Vec3d(dir.x, 0, dir.z);
         if (dir.lengthSquared() < 1.0E-6) return;
-
         dir = dir.normalize();
 
-        double strength = 0.85; // like level 1
+        // TEST MODE values (like level 1)
+        double strength = 0.85;
         double lift = 0.08;
 
         attacker.addVelocity(dir.x * strength, lift, dir.z * strength);
