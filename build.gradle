@@ -21,6 +21,12 @@ dependencies {
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(21)
 }
+loom {
+    mixin {
+        defaultRefmapName = "windriposte.refmap.json"
+    }
+}
+
 
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
