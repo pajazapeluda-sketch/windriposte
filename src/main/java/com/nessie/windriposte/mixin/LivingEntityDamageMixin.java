@@ -9,6 +9,7 @@ import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
@@ -38,12 +39,14 @@ public abstract class LivingEntityDamageMixin {
         ItemStack blocking = self.getBlockingItem();
         if (blocking == null || blocking.isEmpty()) return;
 
-        // Look up enchantment by id
+        // Registry + entry lookup
         Registry<Enchantment> enchReg = world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
-        Enchantment windRiposteValue = enchReg.get(Identifier.of(WindRiposteMod.MODID, "wind_riposte"));
-        if (windRiposteValue == null) return;
 
-        int level = EnchantmentHelper.getLevel(windRiposteValue, blocking);
+        Identifier id = Identifier.of(WindRiposteMod.MODID, "wind_riposte");
+        RegistryEntry<Enchantment> windRiposteEntry = enchReg.getEntry(id).orElse(null);
+        if (windRiposteEntry == null) return;
+
+        int level = EnchantmentHelper.getLevel(windRiposteEntry, blocking);
         if (level <= 0) return;
 
         Vec3d defenderPos = new Vec3d(self.getX(), self.getY(), self.getZ());
