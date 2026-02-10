@@ -9,8 +9,8 @@ import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,12 +22,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class LivingEntityDamageMixin {
 
     @Inject(
-        method = "damage(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/damage/DamageSource;F)Z",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/component/type/BlocksAttacksComponent;applyShieldCooldown(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/LivingEntity;FLnet/minecraft/item/ItemStack;)V",
-            shift = At.Shift.AFTER
-        )
+            method = "damage(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/damage/DamageSource;F)Z",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/component/type/BlocksAttacksComponent;applyShieldCooldown(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/LivingEntity;FLnet/minecraft/item/ItemStack;)V",
+                    shift = At.Shift.AFTER
+            )
     )
     private void windriposte$afterShieldCooldownApplied(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         LivingEntity self = (LivingEntity)(Object)this;
@@ -38,12 +38,12 @@ public abstract class LivingEntityDamageMixin {
         ItemStack blocking = self.getBlockingItem();
         if (blocking == null || blocking.isEmpty()) return;
 
-        // Look up enchantment entry
+        // Look up enchantment by id
         Registry<Enchantment> enchReg = world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
-        @Nullable RegistryEntry<Enchantment> windRiposte = enchReg.getEntry(WindRiposteMod.WIND_RIPOSTE).orElse(null);
-        if (windRiposte == null) return;
+        Enchantment windRiposteValue = enchReg.get(Identifier.of(WindRiposteMod.MODID, "wind_riposte"));
+        if (windRiposteValue == null) return;
 
-        int level = EnchantmentHelper.getLevel(windRiposte, blocking);
+        int level = EnchantmentHelper.getLevel(windRiposteValue, blocking);
         if (level <= 0) return;
 
         Vec3d defenderPos = new Vec3d(self.getX(), self.getY(), self.getZ());
