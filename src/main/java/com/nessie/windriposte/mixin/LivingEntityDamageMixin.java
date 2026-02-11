@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityDamageMixin {
 
-    @Unique private boolean windriposte$wasBlocking = false;
+    @Unique private boolean windriposte$wasUsingShield = false;
     @Unique private boolean windriposte$shieldCooldownBefore = false;
     @Unique private long windriposte$lastProcTick = 0L;
 
@@ -40,16 +40,19 @@ public abstract class LivingEntityDamageMixin {
     private void windriposte$head(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         LivingEntity self = (LivingEntity)(Object)this;
         if (!(self instanceof PlayerEntity player)) {
-            windriposte$wasBlocking = false;
+            windriposte$wasUsingShield = false;
             windriposte$shieldCooldownBefore = false;
             return;
         }
 
-        windriposte$wasBlocking = player.isBlocking();
+        // Reliable server-side signal: player is actively using a shield
+        ItemStack active = player.getActiveItem();
+        windriposte$wasUsingShield = player.isUsingItem() && active.isOf(Items.SHIELD);
 
-        ItemStack shield = windriposte$getHeldShield(player);
+        // Cooldown state BEFORE the hit
+        ItemStack heldShield = windriposte$getHeldShield(player);
         windriposte$shieldCooldownBefore =
-                !shield.isEmpty() && player.getItemCooldownManager().isCoolingDown(shield);
+                !heldShield.isEmpty() && player.getItemCooldownManager().isCoolingDown(heldShield);
     }
 
     @Inject(
@@ -60,19 +63,21 @@ public abstract class LivingEntityDamageMixin {
         LivingEntity self = (LivingEntity)(Object)this;
         if (!(self instanceof PlayerEntity player)) return;
 
-        if (!cir.getReturnValue()) return;        // damage must apply
-        if (!windriposte$wasBlocking) return;     // must have been blocking before hit
+        // Damage must apply
+        if (!cir.getReturnValue()) return;
 
-        // 1 second internal cooldown so it can't spam
+        // Must have been using a shield before the hit
+        if (!windriposte$wasUsingShield) return;
+
+        // 1 second internal cooldown
         long now = world.getTime();
         if (now - windriposte$lastProcTick < 20) return;
 
-        ItemStack shield = windriposte$getHeldShield(player);
-        if (shield.isEmpty()) return;
+        ItemStack heldShield = windriposte$getHeldShield(player);
+        if (heldShield.isEmpty()) return;
 
-        boolean shieldCooldownAfter = player.getItemCooldownManager().isCoolingDown(shield);
-
-        // Shield disable = cooldown turns on this hit
+        // Shield disable = cooldown flips from false -> true on this hit
+        boolean shieldCooldownAfter = player.getItemCooldownManager().isCoolingDown(heldShield);
         if (windriposte$shieldCooldownBefore) return;
         if (!shieldCooldownAfter) return;
 
@@ -90,7 +95,6 @@ public abstract class LivingEntityDamageMixin {
         if (dir.lengthSquared() < 1.0E-6) return;
         dir = dir.normalize();
 
-        // TEST MODE values (like level 1)
         double strength = 0.85;
         double lift = 0.08;
 
