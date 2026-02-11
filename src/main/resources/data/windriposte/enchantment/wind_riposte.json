@@ -2,8 +2,8 @@
   "description": {
     "translate": "enchantment.windriposte.wind_riposte"
   },
-  "supported_items": "#minecraft:enchantable/shield",
-  "primary_items": "#minecraft:enchantable/shield",
+  "supported_items": "minecraft:shield",
+  "primary_items": "minecraft:shield",
   "weight": 5,
   "max_level": 3,
   "min_cost": {
@@ -11,10 +11,12 @@
     "per_level_above_first": 8
   },
   "max_cost": {
-    "base": 30,
+    "base": 25,
     "per_level_above_first": 8
   },
-  "anvil_cost": 2,
-  "slots": ["offhand"],
+  "anvil_cost": 4,
+  "slots": [
+    "offhand"
+  ],
   "effects": {}
 }
