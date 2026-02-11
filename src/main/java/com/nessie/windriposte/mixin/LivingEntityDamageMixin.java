@@ -7,6 +7,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,7 +21,6 @@ public abstract class LivingEntityDamageMixin {
 
     @Unique private boolean windriposte$wasUsingShield = false;
     @Unique private boolean windriposte$shieldCooldownBefore = false;
-    @Unique private long windriposte$lastProcTick = 0L;
 
     @Unique
     private static ItemStack windriposte$getHeldShield(PlayerEntity player) {
@@ -45,11 +45,11 @@ public abstract class LivingEntityDamageMixin {
             return;
         }
 
-        // Reliable server-side signal: player is actively using a shield
+        // super reliable: "am I actively using a shield item right now?"
         ItemStack active = player.getActiveItem();
         windriposte$wasUsingShield = player.isUsingItem() && active.isOf(Items.SHIELD);
 
-        // Cooldown state BEFORE the hit
+        // cooldown state before
         ItemStack heldShield = windriposte$getHeldShield(player);
         windriposte$shieldCooldownBefore =
                 !heldShield.isEmpty() && player.getItemCooldownManager().isCoolingDown(heldShield);
@@ -63,20 +63,16 @@ public abstract class LivingEntityDamageMixin {
         LivingEntity self = (LivingEntity)(Object)this;
         if (!(self instanceof PlayerEntity player)) return;
 
-        // Damage must apply
+        // damage must apply
         if (!cir.getReturnValue()) return;
 
-        // Must have been using a shield before the hit
+        // must have been using a shield
         if (!windriposte$wasUsingShield) return;
-
-        // 1 second internal cooldown
-        long now = world.getTime();
-        if (now - windriposte$lastProcTick < 20) return;
 
         ItemStack heldShield = windriposte$getHeldShield(player);
         if (heldShield.isEmpty()) return;
 
-        // Shield disable = cooldown flips from false -> true on this hit
+        // shield disable = cooldown flips false -> true on this hit
         boolean shieldCooldownAfter = player.getItemCooldownManager().isCoolingDown(heldShield);
         if (windriposte$shieldCooldownBefore) return;
         if (!shieldCooldownAfter) return;
@@ -84,9 +80,10 @@ public abstract class LivingEntityDamageMixin {
         @Nullable Entity attackerEntity = source.getAttacker();
         if (!(attackerEntity instanceof LivingEntity attacker)) return;
 
-        windriposte$lastProcTick = now;
+        // CONFIRMATION: tell player it triggered (server-side)
+        player.sendMessage(Text.literal("§b[WindRiposte] TRIGGERED"), true);
 
-        // Push attacker away from player
+        // HUGE push for testing
         Vec3d defenderPos = new Vec3d(player.getX(), player.getY(), player.getZ());
         Vec3d attackerPos = new Vec3d(attacker.getX(), attacker.getY(), attacker.getZ());
         Vec3d dir = attackerPos.subtract(defenderPos);
@@ -95,8 +92,8 @@ public abstract class LivingEntityDamageMixin {
         if (dir.lengthSquared() < 1.0E-6) return;
         dir = dir.normalize();
 
-        double strength = 0.85;
-        double lift = 0.08;
+        double strength = 3.5; // BIG
+        double lift = 0.6;     // BIG
 
         attacker.addVelocity(dir.x * strength, lift, dir.z * strength);
         attacker.velocityDirty = true;
