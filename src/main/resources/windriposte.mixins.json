@@ -3,7 +3,6 @@
   "minVersion": "0.8",
   "package": "com.nessie.windriposte.mixin",
   "compatibilityLevel": "JAVA_21",
-  "refmap": "windriposte.refmap.json",
   "mixins": [
     "LivingEntityDamageMixin"
   ],
