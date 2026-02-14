@@ -1,18 +1,19 @@
 {
   "schemaVersion": 1,
   "id": "windriposte",
-  "version": "1.0.0",
-  "name": "Wind Riposte",
+  "version": "${version}",
+  "name": "WindRiposte",
+  "description": "Shield disable launches the attacker backward (scales with enchantment level).",
+  "authors": ["nessie"],
+  "license": "MIT",
   "environment": "*",
   "entrypoints": {
     "main": ["com.nessie.windriposte.WindRiposteMod"]
   },
-  "mixins": [
-    "windriposte.mixins.json"
-  ],
+  "mixins": ["windriposte.mixins.json"],
   "depends": {
     "fabricloader": ">=0.18.0",
-    "minecraft": "1.21.11",
-    "fabric-api": "*"
+    "fabric": "*",
+    "minecraft": "1.21.11"
   }
 }
