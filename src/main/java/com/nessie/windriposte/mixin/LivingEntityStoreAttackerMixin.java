@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(LivingEntity.class)
-public abstract class LivingEntityStateMixin implements WindRiposteState {
+public abstract class LivingEntityStoreAttackerMixin implements WindRiposteState {
 
     @Unique private LivingEntity windriposte$lastAttacker = null;
     @Unique private int windriposte$lastLevel = 0;
