@@ -4,14 +4,10 @@
   "package": "com.nessie.windriposte.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "BlocksAttacksComponentMixin",
-    "LivingEntityStoreAttackerMixin"
+    "LivingEntityStoreAttackerMixin",
+    "BlocksAttacksComponentMixin"
   ],
   "injectors": {
     "defaultRequire": 1
   }
 }
-"mixins": [
-  "LivingEntityStateMixin",
-  "BlocksAttacksComponentMixin"
-]
