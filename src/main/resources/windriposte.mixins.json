@@ -11,3 +11,7 @@
     "defaultRequire": 1
   }
 }
+"mixins": [
+  "LivingEntityStateMixin",
+  "BlocksAttacksComponentMixin"
+]
